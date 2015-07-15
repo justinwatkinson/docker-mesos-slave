@@ -1,0 +1,44 @@
+mesosslave:
+  image: justinwatkinson/mesos-slave:latest
+  restart: on-failure:5
+  net: "host"
+  privileged: true
+  ports:
+    - "5051:5051"
+  environment:
+    - MESOS_HOSTNAME=192.168.99.101
+    - MESOS_IP=192.168.99.101
+    - MESOS_WORK_DIR=/var/mesos
+    - MESOS_LOG_DIR=/var/log
+    - MESOS_MASTER=zk://192.168.99.100:2181/mesos
+    - MESOS_CONTAINERIZERS=docker,mesos
+    - MESOS_EXECUTOR_REGISTRATION_TIMEOUT=5mins
+  volumes:
+    - /sys:/sys
+    - /usr/local/bin/docker:/usr/bin/docker:ro
+    - /var/run/docker.sock:/var/run/docker.sock
+    - /lib64/libdevmapper.so.1.02:/lib/libdevmapper.so.1.02:ro
+
+consulagent:
+  image: progrium/consul
+  restart: on-failure:5
+  net: "host"
+  ports:
+    - "8300:8300"
+    - "8301:8301"
+    - "8301:8301/udp"
+    - "8302:8302"
+    - "8302:8302/udp"
+    - "8400:8400"
+    - "8500:8500"
+  command: "-advertise 192.168.99.101 -ui-dir /ui -retry-join 192.168.99.100"
+
+registrator:
+  image: gliderlabs/registrator:master
+  restart: on-failure:5
+  net: "host"
+  command: "-ip=192.168.99.101 -resync=10 -ttl=30 -ttl-refresh=15 consul://localhost:8500"
+  volumes:
+    - /var/run/docker.sock:/tmp/docker.sock
+  volumes_from:
+    - consulagent
